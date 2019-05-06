@@ -4,6 +4,8 @@
 #FROM ocaml/opam2:debian-9-ocaml-4.07
 FROM ocaml/opam2@sha256:f7125924dd6632099ff98b2505536fe5f5c36bf0beb24779431bb62be5748562
 
+ENV OPAMVERBOSE=2
+
 # Pin last known-good version for reproducible builds.
 # Remove this line (and the base image pin above) if you want to test with the
 # latest versions.
