@@ -87,17 +87,19 @@ let add_vif get_ts { Dao.ClientVif.domid; device_id } dns_client ~client_ip ~rou
   let gateway_ip = Client_eth.client_gw client_eth in
   let iface = new client_iface eth ~domid ~gateway_ip ~client_ip client_mac in
   (* update the rules whenever QubesDB notices a change for this IP *)
+  Log.info (fun f -> f "Running qubesdb_updater thread...");
   let qubesdb_updater =
     Lwt.catch
       (fun () ->
         let rec update current_db current_rules =
           Qubes.DB.got_new_commit qubesDB (Dao.db_root client_ip) current_db >>= fun new_db ->
           iface#set_rules new_db;
+          Log.info (fun f -> f "Getting rules...");
           let new_rules = iface#get_rules in
           (if current_rules = new_rules then
-            Log.debug (fun m -> m "Rules did not change for %s" (Ipaddr.V4.to_string client_ip))
+            Log.info (fun m -> m "Rules did not change for %s" (Ipaddr.V4.to_string client_ip))
           else begin
-            Log.debug (fun m -> m "New firewall rules for %s@.%a"
+            Log.info (fun m -> m "New firewall rules for %s@.%a"
                         (Ipaddr.V4.to_string client_ip)
                         Fmt.(list ~sep:(unit "@.") Pf_qubes.Parse_qubes.pp_rule) new_rules);
             (* empty NAT table if rules are updated: they might deny old connections *)
@@ -109,10 +111,12 @@ let add_vif get_ts { Dao.ClientVif.domid; device_id } dns_client ~client_ip ~rou
       (function Lwt.Canceled -> Lwt.return_unit | e -> Lwt.fail e)
   in
   Cleanup.on_cleanup cleanup_tasks (fun () -> Lwt.cancel qubesdb_updater);
+  Log.info (fun f -> f "Adding to router");
   Router.add_client router iface >>= fun () ->
   Cleanup.on_cleanup cleanup_tasks (fun () -> Router.remove_client router iface);
   let fixed_arp = Client_eth.ARP.create ~net:client_eth iface in
   let fragment_cache = ref (Fragments.Cache.empty (256 * 1024)) in
+  Log.info (fun f -> f "Starting listener...");
   let listener =
     Lwt.catch
       (fun () ->
@@ -129,6 +133,7 @@ let add_vif get_ts { Dao.ClientVif.domid; device_id } dns_client ~client_ip ~rou
       (function Lwt.Canceled -> Lwt.return_unit | e -> Lwt.fail e)
   in
   Cleanup.on_cleanup cleanup_tasks (fun () -> Lwt.cancel listener);
+  Log.info (fun f -> f "Waiting for failure...");
   Lwt.pick [ qubesdb_updater ; listener ]
 
 (** A new client VM has been found in XenStore. Find its interface and connect to it. *)
