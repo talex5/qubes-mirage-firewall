@@ -58,10 +58,15 @@ let reset t ports =
   Nat.reset t.table
 
 let remove_connections t ports ip =
+  Log.info (fun f -> f "remove_connections: enter");
   let freed_ports = Nat.remove_connections t.table ip in
+  Log.info (fun f -> f "tcp");
   ports.nat_tcp := Ports.diff !(ports.nat_tcp) (Ports.of_list freed_ports.Mirage_nat.tcp);
+  Log.info (fun f -> f "udp");
   ports.nat_udp := Ports.diff !(ports.nat_udp) (Ports.of_list freed_ports.Mirage_nat.udp);
-  ports.nat_icmp := Ports.diff !(ports.nat_icmp) (Ports.of_list freed_ports.Mirage_nat.icmp)
+  Log.info (fun f -> f "icmp");
+  ports.nat_icmp := Ports.diff !(ports.nat_icmp) (Ports.of_list freed_ports.Mirage_nat.icmp);
+  Log.info (fun f -> f "done")
 
 let add_nat_rule_and_translate t ports ~xl_host action packet =
   let apply_action xl_port =

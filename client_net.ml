@@ -92,7 +92,9 @@ let add_vif get_ts { Dao.ClientVif.domid; device_id } dns_client ~client_ip ~rou
     Lwt.catch
       (fun () ->
         let rec update current_db current_rules =
+          Log.info (fun f -> f "calling got_new_commit");
           Qubes.DB.got_new_commit qubesDB (Dao.db_root client_ip) current_db >>= fun new_db ->
+          Log.info (fun f -> f "setting rules");
           iface#set_rules new_db;
           Log.info (fun f -> f "Getting rules...");
           let new_rules = iface#get_rules in
@@ -103,13 +105,16 @@ let add_vif get_ts { Dao.ClientVif.domid; device_id } dns_client ~client_ip ~rou
                         (Ipaddr.V4.to_string client_ip)
                         Fmt.(list ~sep:(unit "@.") Pf_qubes.Parse_qubes.pp_rule) new_rules);
             (* empty NAT table if rules are updated: they might deny old connections *)
+            Log.info (fun f -> f "remove_connections");
             My_nat.remove_connections router.Router.nat router.Router.ports client_ip;
+            Log.info (fun f -> f "remove_connections done");
           end);
           update new_db new_rules
         in
         update Qubes.DB.KeyMap.empty [])
       (function Lwt.Canceled -> Lwt.return_unit | e -> Lwt.fail e)
   in
+  Log.info (fun f -> f "on_cleanup");
   Cleanup.on_cleanup cleanup_tasks (fun () -> Lwt.cancel qubesdb_updater);
   Log.info (fun f -> f "Adding to router");
   Router.add_client router iface >>= fun () ->
